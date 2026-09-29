@@ -81,7 +81,6 @@ paths:
 # --- merge ------------------------------------------------------------------
 merge:
   max_mb: 500                       # concatenate + purge parts only if the merged CSV is under this
-  xlsx: true                        # also write <run_name>.xlsx next to the CSV
 
 # --- SLURM (ignored with --local) -------------------------------------------
 # Changing these does not count as changing the run: a resubmit with new

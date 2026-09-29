@@ -1,0 +1,40 @@
+# ftdLesion holds CODE ONLY. Clinical transcripts, sweep outputs, ratings,
+# calibration tensors and model weights live outside git:
+#   laptop : C:\Users\martx\Analyses\0_securedata\   (patient data)
+#   Bouchet: $FTD_BASE, $FTD_STORE                  (see env.sh)
+# The rules below are a backstop, not the protection -- keep data out of the
+# repo directory in the first place.
+
+# --- data, anywhere in the tree ---------------------------------------------
+*.csv
+*.tsv
+*.xlsx
+*.xls
+*.jsonl
+*.parquet
+*.rds
+*.RData
+*.pt
+*.safetensors
+*.bin
+
+# CSVs that are code: the prompt registry and the rater item wording
+!prompts/registry.csv
+!clinician/crude/items.csv
+
+# --- generated directories --------------------------------------------------
+client/outputs/*
+!client/outputs/.gitkeep
+client/archive/
+analysis/ratings/*
+!analysis/ratings/.gitkeep
+logs/
+calibration/
+
+# --- tooling ----------------------------------------------------------------
+__pycache__/
+*.pyc
+.pytest_cache/
+.Rproj.user/
+.Rhistory
+.ipynb_checkpoints/

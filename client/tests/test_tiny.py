@@ -122,7 +122,7 @@ def write_cfg(path, model_dir, root, **over):
         "calibration_prompts": ["bird", "farm"],
         "paths": {"output_root": os.path.join(root, "results"),
                   "calib_root": os.path.join(root, "calibration")},
-        "merge": {"max_mb": 50, "xlsx": True}, "slurm": {"partition": "x"},
+        "merge": {"max_mb": 50}, "slurm": {"partition": "x"},
     }
     cfg.update(over)
     with open(path, "w") as f:
@@ -176,12 +176,12 @@ def test_end_to_end(model_dir, root):
     assert set(df.manipulation) == set(sweep.MANIP_SPECS) | {"none"}
     assert (df.n_words <= 15).all()
     assert not os.path.exists(os.path.join(run_dir, "parts")), "parts should be purged"
-    for f in ("tiny.log.json", "tiny.xlsx", "config.frozen.yaml", "prompts.frozen.csv"):
+    for f in ("tiny.log.json", "config.frozen.yaml", "prompts.frozen.csv"):
         assert os.path.exists(os.path.join(run_dir, f)), f
     base = df[df.manipulation == "none"]
     swept = df[(df.manipulation == "gate_noise") & (df.layer_strategy == "all")]
     assert (base.layer_indices == "").all() and len(swept) == 2 * 2 * 3
-    print(f"ok  run.sh --local: {len(df)} rows merged, parts purged, csv + xlsx + log written")
+    print(f"ok  run.sh --local: {len(df)} rows merged, parts purged, csv + log written")
     print(df.stop_reason.value_counts().to_dict())
 
 

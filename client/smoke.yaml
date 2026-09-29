@@ -33,7 +33,6 @@ paths:
   calib_root: ${FTD_BASE:-client/outputs}/calibration
 merge:
   max_mb: 500
-  xlsx: true
 slurm:
   partition: gpu_b200
   gpus: 2

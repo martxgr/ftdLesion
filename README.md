@@ -13,7 +13,7 @@ ftdLesion/
 │   ├── sweep.py           the engine (ported from llmSchizophrenia/8_sweep.py)
 │   ├── pull.sh            copy a merged run from Bouchet to client/outputs/
 │   ├── tests/             CPU test on a tiny random Llama
-│   ├── outputs/           <run>/<run>.csv + .xlsx + .log.json      (gitignored)
+│   ├── outputs/           <run>/<run>.csv + .log.json              (gitignored)
 │   └── archive/           legacy run_1 ... run_7                    (gitignored)
 ├── clinician/             the raters -- see response only, never the prompt
 │   ├── common/            shared validation metrics
@@ -45,3 +45,16 @@ the prompts it used, and after merging `<run_name>.csv` with its
 `<run_name>.log.json` (config, git commit, calibration hash, per-task counts,
 stop reasons). Resubmitting resumes; a changed config under the same
 `run_name` is refused.
+
+## Clinician (crude)
+
+```bash
+clinician/crude/rate.sh                          # on Bouchet: one GPU job, rate then validate
+python clinician/crude/tests/test_local.py       # CPU check on synthetic transcripts
+```
+
+`backend: local` scores with Llama-3.3-70B on our GPUs, reading each answer off
+the next-token distribution (`score` = most likely answer, `ev` = expected
+score, `p_mass` = probability on valid answers). `backend: api` does the same
+questions through the Anthropic Batches API (`validate/rate_api.py`). Ratings
+of patient transcripts go to `$FTD_RATINGS`, never the repo.

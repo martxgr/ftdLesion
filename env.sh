@@ -14,6 +14,11 @@ export FTD_BASE=/nfs/roberts/project/pi_prc29/mam475/kv_ablation
 # Fine-tune store: training data, adapters, runs (see clinician/fine_tune).
 export FTD_STORE=${FTD_STORE:-$HOME/project_pi_prc29/mam475/ftd}
 
+# Patient transcripts + human TLI, and the rater's scores of them. Both stay on
+# the allocation, never in the repo (clinician/crude/configure.yaml reads these).
+export FTD_PATIENT_DATA=${FTD_PATIENT_DATA:-$FTD_STORE/data/tli_master.csv}
+export FTD_RATINGS=${FTD_RATINGS:-$FTD_STORE/ratings}
+
 # --- Hugging Face -----------------------------------------------------------
 # Weights live on SCRATCH, which is purged after ~60 idle days. If a job fails
 # with what looks like an auth error, check the cache first:

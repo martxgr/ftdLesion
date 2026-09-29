@@ -94,7 +94,7 @@ NEEDS_CALIB = {"gate_shift", "gate_noise", "input_noise", "values_noise",
 CALIB_VERSION = 2   # 2: + sigma_values (SD of down_proj output) for values_noise
 
 # Config keys that may change without it counting as a different run.
-RESUMABLE_KEYS = ("slurm",)
+RESUMABLE_KEYS = ("slurm", "merge")   # neither changes a generated row
 
 
 # --------------------------------------------------------------------------- #
@@ -208,7 +208,7 @@ def validate_config(raw):
              "calib_root": "${FTD_BASE:-client/outputs}/calibration"}
     paths.update(cfg.get("paths") or {})
     cfg["paths"] = paths
-    merge = {"max_mb": 500, "xlsx": True}
+    merge = {"max_mb": 500}
     merge.update(cfg.get("merge") or {})
     cfg["merge"] = merge
     cfg.setdefault("slurm", {})
@@ -867,14 +867,6 @@ def cmd_merge(args):
         print(f"merged CSV would be {size_mb:.0f} MB > merge.max_mb={cfg['merge']['max_mb']}; "
               "keeping parts/ unmerged", file=sys.stderr)
 
-    xlsx_path = None
-    if merged and cfg["merge"]["xlsx"]:
-        if len(allrows) < 1_048_000 and allrows.output.str.len().max() < 32_000:
-            xlsx_path = os.path.join(run_dir, f"{name}.xlsx")
-            allrows.to_excel(xlsx_path, index=False)
-        else:
-            print("too large for Excel; skipped .xlsx", file=sys.stderr)
-
     with open(os.path.join(run_dir, "manifest.json")) as f:
         manifest = json.load(f)
     calib = {}
@@ -890,7 +882,6 @@ def cmd_merge(args):
         "csv": os.path.basename(csv_path) if merged else None,
         "csv_sha256": sha256_file(csv_path) if merged else None,
         "csv_mb": round(size_mb, 1),
-        "xlsx": os.path.basename(xlsx_path) if xlsx_path else None,
         "parts_kept": not merged or args.keep_parts,
         "config": cfg,
         "prompts": {r.prompt_id: hashlib.sha256(r.text.encode("utf-8")).hexdigest()[:12]

@@ -1,43 +1,68 @@
-# clinician/crude/configure.yaml -- API rater. Edit, then:
-#   python clinician/crude/validate/rate_api.py plan      # size + cost estimate, sends nothing
-#   python clinician/crude/validate/rate_api.py submit    # send the batch
-#   python clinician/crude/validate/rate_api.py collect   # fetch results when the batch has ended
-#   python clinician/crude/validate/report.py             # (validate mode) correlate with human TLI
+# clinician/crude/configure.yaml -- the crude rater. Edit, then on Bouchet:
+#   clinician/crude/rate.sh                 # submit: rate, then validate (backend: local)
+#   clinician/crude/rate.sh --here          # run in this shell instead (GPU node / CPU tests)
+# or with the API backend, from anywhere with a key:
+#   python clinician/crude/validate/rate_api.py plan | submit | status | collect
+#   python clinician/crude/validate/report.py
 #
 # The rater sees the RESPONSE ONLY -- never the prompt that produced it -- so an
 # off-topic answer can't be scored as disorder just for being off-topic.
 
-name: tli_fable_1                   # names the output folder
+name: tli_llama_1                   # names the output folder
 
 mode: validate                      # validate = patient transcripts vs human TLI; rate = a client run
-
-model: claude-fable-5-1             # most capable; claude-opus-5-5 is ~2.5x cheaper
-effort: medium                      # low | medium | high | xhigh | max
-max_tokens: 8000                    # thinking counts toward this
+backend: local                      # local = open model on our GPUs; api = Anthropic Batches API
 
 instruments:
-  crude:                            # one call per item, wording verbatim from items.csv
+  crude:                            # one question per item, wording verbatim from items.csv, 0-10
     items: [tangential, loss_goal, derail, non_sequitur, distractable]
-  tli: true                         # one call per response, all 8 TLI items (tli_prompt.md)
+  tli: true                         # the 8 TLI items (tli_prompt.md), one question per item
 
+# --- local backend ----------------------------------------------------------
+# Scores are read off the next-token distribution over the allowed answers
+# (0..10 for crude, 0..4 -> 0/0.25/0.5/1/2 for TLI): `score` is the most likely
+# answer, `ev` the probability-weighted mean, `p_mass` how much probability the
+# model put on valid answers at all (low = it wanted to say something else).
+local:
+  model: meta-llama/Llama-3.3-70B-Instruct
+  dtype: bfloat16
+  device_map: auto
+  batch_size: 8
+  max_length: 4096                  # prompt tokens; longer transcripts are refused, not truncated
+
+# --- api backend ------------------------------------------------------------
+api:
+  model: claude-fable-5-1
+  effort: medium
+  max_tokens: 8000
+  prices:                           # $ per million tokens, standard (Batches API halves these)
+    claude-fable-5-1: {input: 10.0, output: 50.0}
+    claude-opus-5-5:  {input: 4.0,  output: 20.0}
+    claude-sonnet-5-5: {input: 2.0, output: 10.0}
+  estimate_output_tokens: {crude: 400, tli: 1500}
+
+# --- data -------------------------------------------------------------------
+# Patient data never enters the repo. On Bouchet env.sh sets FTD_PATIENT_DATA
+# and FTD_RATINGS (under $FTD_STORE); the defaults are the laptop paths.
 validate:
-  # Patient data never enters the repo; read in place, write ratings next to it.
-  data: C:/Users/martx/Analyses/0_securedata/0_finetunedata/out/tli_master.csv
+  data: ${FTD_PATIENT_DATA:-C:/Users/martx/Analyses/0_securedata/0_finetunedata/out/tli_master.csv}
   row_type: image                   # one picture description per row, per-image TLI targets
   text_col: response                # participant speech only, no interviewer turns
-  output_root: C:/Users/martx/Analyses/0_securedata/0_finetunedata/ratings
-  limit: null                       # e.g. 20 for a pilot batch
+  output_root: ${FTD_RATINGS:-C:/Users/martx/Analyses/0_securedata/0_finetunedata/ratings}
+  limit: null                       # e.g. 20 for a pilot
 
 rate:
   run_csv: null                     # path to a client <run>.csv
   text_col: output
   output_root: analysis/ratings
 
-# $ per million tokens, standard (the Batches API halves these)
-prices:
-  claude-fable-5-1: {input: 10.0, output: 50.0}
-  claude-opus-5-5:  {input: 4.0,  output: 20.0}
-  claude-sonnet-5-5: {input: 2.0, output: 10.0}
-# Rough output tokens per call (thinking included) for the pre-flight estimate.
-# `collect` reports the real usage.
-estimate_output_tokens: {crude: 400, tli: 1500}
+report:
+  use_ev: true                      # local backend: correlate the expected score, not the argmax
+
+# --- SLURM (rate.sh) --------------------------------------------------------
+slurm:
+  partition: gpu_b200
+  gpus: 2
+  cpus: 8
+  mem: 256G
+  time: "06:00:00"
