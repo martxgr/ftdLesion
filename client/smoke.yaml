@@ -1,6 +1,6 @@
 # client/smoke.yaml -- first contact with the GPUs: 4 tasks, 8 rows.
 # Shares calibration with tat_1 (same model + calibration prompts), so the
-# full run reuses it.   client/run.sh client/smoke.yaml
+# full run reuses it.   sbatch client/run.sh client/smoke.yaml
 run_name: tat_smoke
 models:
 - meta-llama/Llama-3.3-70B-Instruct

@@ -1,17 +1,34 @@
 #!/bin/bash
+#SBATCH --job-name=ftd-submit
+#SBATCH --partition=day
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=4G
+#SBATCH --time=00:15:00
+#SBATCH --output=logs/%x_%j.out
 # client/run.sh -- run whatever client/configure.yaml describes.
 #
-#   client/run.sh                        submit to SLURM: calibrate -> task array -> merge
-#   client/run.sh path/to/other.yaml     same, with another config
-#   client/run.sh --local [config]       every step in this shell, no SLURM
-#   client/run.sh --dry-run [config]     print the run size and exit
+# From the repo root:
+#   sbatch client/run.sh                 a small CPU job that submits the chain:
+#                                        calibrate -> task array -> merge
+#   sbatch client/run.sh client/smoke.yaml   same, with another config
+#   bash client/run.sh                   the same submission, from the login shell
+#   bash client/run.sh --local [config]  every step in this shell, no SLURM
+#   bash client/run.sh --dry-run [config]    print the run size and exit
 #
 # Resubmitting the same config resumes: finished rows are skipped, calibration
 # is reused. A changed config with the same run_name is refused -- rename it.
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO="$(dirname "$HERE")"
+if [ -n "${SLURM_JOB_ID:-}" ]; then
+  # under sbatch this file runs from a spool copy, so locate the repo by the
+  # directory it was submitted from
+  REPO="$SLURM_SUBMIT_DIR"
+  [ -f "$REPO/client/sweep.py" ] || { echo "submit from the ftdLesion repo root" >&2; exit 2; }
+  HERE="$REPO/client"
+else
+  HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  REPO="$(dirname "$HERE")"
+fi
 MODE=slurm
 case "${1:-}" in
   --local)   MODE=local; shift ;;

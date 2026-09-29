@@ -9,7 +9,7 @@ ftdLesion/
 ├── prompts/registry.csv   every prompt, stable IDs (client + analysis read it; clinician never does)
 ├── client/                the lesioned models
 │   ├── configure.yaml     models, prompts, manipulations x levels, layer bands, length cap
-│   ├── run.sh             runs configure.yaml: calibrate -> task array -> merge
+│   ├── run.sh             `sbatch client/run.sh`: calibrate -> task array -> merge
 │   ├── sweep.py           the engine (ported from llmSchizophrenia/8_sweep.py)
 │   ├── pull.sh            copy a merged run from Bouchet to client/outputs/
 │   ├── tests/             CPU test on a tiny random Llama
@@ -34,9 +34,9 @@ sweep outputs in `$FTD_BASE/results` (Bouchet) or `client/outputs/` (laptop).
 ## Client
 
 ```bash
-client/run.sh --dry-run          # size of the run in configure.yaml
-client/run.sh                    # on Bouchet: submit it
-client/run.sh --local cfg.yaml   # on the laptop: run every step here
+bash client/run.sh --dry-run     # size of the run in configure.yaml
+sbatch client/run.sh             # on Bouchet: submit it (from the repo root)
+bash client/run.sh --local cfg.yaml   # on the laptop: run every step here
 python client/tests/test_tiny.py # check the engine end to end on CPU
 ```
 
@@ -49,7 +49,7 @@ stop reasons). Resubmitting resumes; a changed config under the same
 ## Clinician (crude)
 
 ```bash
-clinician/crude/rate.sh                          # on Bouchet: one GPU job, rate then validate
+sbatch clinician/crude/rate.sbatch               # on Bouchet: one GPU job, rate then validate
 python clinician/crude/tests/test_local.py       # CPU check on synthetic transcripts
 ```
 

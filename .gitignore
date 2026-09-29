@@ -28,7 +28,8 @@ client/outputs/*
 client/archive/
 analysis/ratings/*
 !analysis/ratings/.gitkeep
-logs/
+logs/*
+!logs/.gitkeep
 calibration/
 
 # --- tooling ----------------------------------------------------------------

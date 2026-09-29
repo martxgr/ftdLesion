@@ -25,6 +25,7 @@ MANIPULATIONS
     values_promote shift each v_i toward its top-2 token embedding  (alpha)
     values_demote  shift each v_i away from its top-1 token embedding(alpha)
     values_noise   Gaussian noise on the MLP output (down_proj out)  (sigma)
+    values_weight_noise  Gaussian noise on the value vectors (W_down)  (sigma)
   Control:
     input_noise    Gaussian noise on the whole MLP input vector     (sigma)
 
@@ -79,6 +80,7 @@ MANIP_SPECS = {
     "values_demote":  {"mode": "param_mod", "site": "down_proj", "param_name": "alpha",  "side": "values"},
     "input_noise":    {"mode": "pre_hook",  "site": "mlp",       "param_name": "sigma",  "side": "input"},
     "values_noise":   {"mode": "act_hook",  "site": "down_proj", "param_name": "sigma",  "side": "values"},
+    "values_weight_noise": {"mode": "param_mod", "site": "down_proj", "param_name": "sigma", "side": "values"},
 }
 
 BAND_GROUPS = {
@@ -521,7 +523,7 @@ class Engine:
             return pre
         raise ValueError(name)
 
-    def _param_mod(self, name, layer_idx, param, clean_cpu):
+    def _param_mod(self, name, layer_idx, param, clean_cpu, noise_seed=0):
         """Modified down_proj.weight [d, d_m], built FRESH from the clean
         snapshot (no accumulated drift)."""
         torch = self.torch
@@ -544,14 +546,25 @@ class Engine:
             col_norm = clean.norm(dim=0)
             scale = torch.clamp(MAX_SHIFT_RATIO * col_norm / (shift.norm(dim=1) + 1e-6), max=1.0)
             modified = clean + sign * (shift * scale.unsqueeze(1)).t()
+        elif name == "values_weight_noise":
+            # v_i <- v_i + eta_i, eta ~ N(0, (sigma * sd(W_down))^2): corrupts the
+            # stored content, so the output error sum_i h_i eta_i scales with how
+            # strongly cells fire. One draw per (cell, layer), fixed for the
+            # whole generation; its own seeded generator, so it is reproducible
+            # and independent of the sampling stream.
+            g = torch.Generator(device=clean.device)
+            g.manual_seed(int(noise_seed) + layer_idx)
+            noise = torch.randn(clean.shape, generator=g, device=clean.device, dtype=clean.dtype)
+            modified = clean + noise * (float(param) * clean.std())
         else:
             raise ValueError(name)
         return modified.to(dp.dtype)
 
     @contextmanager
-    def manipulated(self, name, layer_indices, param):
+    def manipulated(self, name, layer_indices, param, noise_seed=0):
         """Apply `name` at `param` to `layer_indices` for the duration of the
-        block; always restores the clean model on exit."""
+        block; always restores the clean model on exit. noise_seed seeds weight
+        noise (values_weight_noise); activation noise uses the sampling RNG."""
         if name == "none":
             yield
             return
@@ -575,7 +588,7 @@ class Engine:
                         dp = self.layers[li].mlp.down_proj.weight
                         # clean snapshot on CPU (safe for the 'all' band)
                         snapshot[li] = dp.detach().to("cpu", copy=True)
-                        dp.copy_(self._param_mod(name, li, param, snapshot[li]))
+                        dp.copy_(self._param_mod(name, li, param, snapshot[li], noise_seed))
             yield
         finally:
             for h in hooks:
@@ -785,7 +798,8 @@ def run_task(cfg, run_dir, task, engine=None):
                 seed = cell_seed(cfg["seed"], task["model"], manip, band, pkey(level), pid, b0)
                 print(f"  {spec['param_name'] or 'baseline'}={pkey(level)} prompt={pid} "
                       f"reps {rep_ids[0]}-{rep_ids[-1]} seed={seed}", flush=True)
-                with engine.manipulated(manip, layers, level):
+                with engine.manipulated(manip, layers, level,
+                                        noise_seed=cell_seed(seed, "weights")):
                     outs = engine.generate(prompt, len(rep_ids), cfg["generation"], seed)
                 rows = []
                 for r, (text, n_words, reason) in zip(rep_ids, outs):

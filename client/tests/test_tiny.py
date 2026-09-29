@@ -97,6 +97,13 @@ def test_manipulations(model_dir, calib_dir):
         for k, v in eng.model.state_dict().items():
             assert torch.equal(v, weights0[k]), f"{name} left weight {k} modified"
     assert all(not m._forward_hooks and not m._forward_pre_hooks for m in eng.model.modules())
+    layers = sweep.band_layers("all", eng.n_layers)
+    draws = []
+    for ns in (11, 11, 12):
+        with eng.manipulated("values_weight_noise", layers, 2.0, noise_seed=ns):
+            draws.append(logits())
+    assert torch.equal(draws[0], draws[1]) and not torch.equal(draws[0], draws[2])
+    print("ok  values_weight_noise: same seed -> same lesion, new seed -> new lesion")
     print(f"ok  all {len(sweep.MANIP_SPECS)} manipulations move the logits and restore the model exactly")
 
     gen = {"temperature": 1.0, "top_k": 50, "max_words": 12, "max_new_tokens": 60}

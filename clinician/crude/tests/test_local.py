@@ -3,7 +3,7 @@
 clinician/crude/tests/test_local.py -- the local rater end to end on CPU.
 
 Uses a tiny random Llama (gpt2 vocab) and SYNTHETIC transcripts -- no patient
-data -- and checks that rate.sh --here scores every question, resumes without
+data -- and checks that rate_local.py scores every question, resumes without
 duplicates, and that report.py produces the validation table.
 
   python clinician/crude/tests/test_local.py
@@ -61,9 +61,9 @@ def main():
         cfg["validate"].update(data=os.path.join(root, "master.csv"), output_root=root)
         cfg_path = os.path.join(root, "cfg.yaml")
         yaml.safe_dump(cfg, open(cfg_path, "w"))
-        env = dict(os.environ, PYTHON=sys.executable)
-        run = lambda: subprocess.run(["bash", os.path.join(CRUDE, "rate.sh"), "--here", cfg_path],
-                                     capture_output=True, text=True, env=env)
+        script = os.path.join(CRUDE, "validate", "rate_local.py")
+        run = lambda: subprocess.run([sys.executable, script, "--config", cfg_path, "--report"],
+                                     capture_output=True, text=True)
         r = run()
         assert r.returncode == 0, r.stdout[-2000:] + r.stderr[-3000:]
         od = os.path.join(root, "tiny")

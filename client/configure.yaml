@@ -1,6 +1,6 @@
 # client/configure.yaml -- what a sweep run does. Edit this, then:
-#   client/run.sh                  submit to SLURM (Bouchet)
-#   client/run.sh --local          run every step in this shell (tests, small models)
+#   sbatch client/run.sh           submit to SLURM (Bouchet), from the repo root
+#   bash client/run.sh --local     run every step in this shell (tests, small models)
 #
 # At submit time this file is FROZEN into the run directory, and every job
 # reads the frozen copy. Editing it mid-run changes nothing for that run.
@@ -64,6 +64,10 @@ manipulations:
   gate_noise:     [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
   input_noise:    [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
   values_noise:   [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]   # noise on the MLP output, in per-layer SDs
+  # noise on the value vectors themselves, in units of the layer's W_down SD.
+  # Output error sum_i h_i eta_i has SD ~ sigma * (typical output SD), so the
+  # same sigma grid is roughly comparable to values_noise.
+  values_weight_noise: [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
 
 # Prompts the per-layer SDs are measured over. `all` = the whole registry, so
 # sigma is the same for a model whichever prompts a run uses. Calibration is

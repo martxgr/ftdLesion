@@ -1,9 +1,9 @@
-# clinician/crude/configure.yaml -- the crude rater. Edit, then on Bouchet:
-#   clinician/crude/rate.sh                 # submit: rate, then validate (backend: local)
-#   clinician/crude/rate.sh --here          # run in this shell instead (GPU node / CPU tests)
+# clinician/crude/configure.yaml -- the crude rater. Edit, then from the repo root on Bouchet:
+#   sbatch clinician/crude/rate.sbatch      # one GPU job: rate, then validate (backend: local)
 # or with the API backend, from anywhere with a key:
 #   python clinician/crude/validate/rate_api.py plan | submit | status | collect
 #   python clinician/crude/validate/report.py
+# GPU resources are in rate.sbatch's #SBATCH header.
 #
 # The rater sees the RESPONSE ONLY -- never the prompt that produced it -- so an
 # off-topic answer can't be scored as disorder just for being off-topic.
@@ -58,11 +58,3 @@ rate:
 
 report:
   use_ev: true                      # local backend: correlate the expected score, not the argmax
-
-# --- SLURM (rate.sh) --------------------------------------------------------
-slurm:
-  partition: gpu_b200
-  gpus: 2
-  cpus: 8
-  mem: 256G
-  time: "06:00:00"
