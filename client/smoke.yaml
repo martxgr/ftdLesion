@@ -1,0 +1,46 @@
+# client/smoke.yaml -- first contact with the GPUs: 4 tasks, 8 rows.
+# Shares calibration with tat_1 (same model + calibration prompts), so the
+# full run reuses it.   client/run.sh client/smoke.yaml
+run_name: tat_smoke
+models:
+- meta-llama/Llama-3.3-70B-Instruct
+dtype: bfloat16
+device_map: auto
+prompts:
+- farm
+reps: 2
+batch_reps: 2
+seed: 0
+baseline: true
+generation:
+  temperature: 1.0
+  top_k: 50
+  max_words: 161
+  max_new_tokens: 400
+metrics: true
+bands:
+- 40-50%
+manipulations:
+  gate_noise:
+  - 2.0
+  values_noise:
+  - 2.0
+  values_flatten:
+  - 0.5
+calibration_prompts: all
+paths:
+  output_root: ${FTD_BASE:-client/outputs}/results
+  calib_root: ${FTD_BASE:-client/outputs}/calibration
+merge:
+  max_mb: 500
+  xlsx: true
+slurm:
+  partition: gpu_b200
+  gpus: 2
+  cpus: 8
+  mem: 256G
+  time: 01:00:00
+  max_concurrent: null
+  calibrate_time: 03:00:00
+  merge_mem: 32G
+  merge_partition: day

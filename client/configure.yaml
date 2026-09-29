@@ -1,0 +1,98 @@
+# client/configure.yaml -- what a sweep run does. Edit this, then:
+#   client/run.sh                  submit to SLURM (Bouchet)
+#   client/run.sh --local          run every step in this shell (tests, small models)
+#
+# At submit time this file is FROZEN into the run directory, and every job
+# reads the frozen copy. Editing it mid-run changes nothing for that run.
+#
+# Rows produced = prompts x reps x (1 baseline + manipulations x levels x bands),
+# per model. `python client/sweep.py plan --config ... --dry-run` prints the count.
+
+run_name: tat_1                     # names the output folder and the merged CSV
+
+models:                             # one or many; each is sweep-ed over everything below
+  - meta-llama/Llama-3.3-70B-Instruct
+dtype: bfloat16
+device_map: auto                    # null = single device (CPU tests)
+
+# --- prompts ----------------------------------------------------------------
+# IDs from prompts/registry.csv, or `all`.
+#   story: walk_open walk_closed1 walk_closed2 card_open card_closed1 card_closed2 bird
+#   scene: farm doorway bridge
+prompts: [farm, doorway, bridge]    # the TAT scenes
+
+reps: 20
+batch_reps: 20                      # reps generated together in one batch; 1 = old one-at-a-time
+seed: 0                             # every (model, manipulation, band, level, prompt) cell is seeded from this
+
+baseline: true                      # unmanipulated model, same prompts x reps
+
+# --- generation -------------------------------------------------------------
+generation:
+  temperature: 1.0
+  top_k: 50
+  # Length cap. Long outputs buy disorder scores by running out of content, so
+  # cap to the human distribution: picture-description p75 = 161 words.
+  max_words: 161                    # stop once this many words are complete; null = off
+  max_new_tokens: 400               # hard token ceiling behind the word cap
+
+metrics: true                       # inline word_count / ttr / repetition / coherence / topic_similarity
+
+# --- layer bands ------------------------------------------------------------
+# Any mix of:
+#   deciles     -> 0-10% ... 90-100%
+#   quartiles   -> 0-25% 25-50% 50-75% 75-100%
+#   all         -> every layer
+#   "a-b%"      -> any integer percentile band, e.g. "35-45%"
+# Band a-b% covers layers floor(n*a/100) .. floor(n*b/100)-1 of n.
+bands: [deciles, quartiles, all]
+
+# --- manipulations ----------------------------------------------------------
+# Remove a manipulation to skip it. Levels are the FULL grid: run_6 had the first
+# four of each list, run_7 added the rest.
+#   lambda : flatten family, 0 = untouched, 1 = fully flattened
+#   sigma  : noise, in units of the per-layer SD measured at calibration
+#   beta   : gate_shift, in units of the per-layer gate SD
+#   alpha  : promote/demote, in units of each cell's flip/drop distance
+# Also available, left out of tat_1: values_promote, values_demote (top-token
+# swap on the value vectors) -- replaced by values_noise.
+manipulations:
+  gate_flatten:   [0.1, 0.25, 0.3, 0.4, 0.5, 0.55, 0.7, 0.85, 1.0]
+  up_flatten:     [0.1, 0.25, 0.3, 0.4, 0.5, 0.55, 0.7, 0.85, 1.0]
+  values_flatten: [0.1, 0.25, 0.3, 0.4, 0.5, 0.55, 0.7, 0.85, 1.0]
+  gate_shift:     [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
+  gate_noise:     [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
+  input_noise:    [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]
+  values_noise:   [0.5, 1.0, 1.5, 2.0, 3.0, 4.0, 6.0, 8.0, 12.0]   # noise on the MLP output, in per-layer SDs
+
+# Prompts the per-layer SDs are measured over. `all` = the whole registry, so
+# sigma is the same for a model whichever prompts a run uses. Calibration is
+# cached per (model, calibration prompts) and reused across runs.
+calibration_prompts: all
+
+# --- storage ----------------------------------------------------------------
+# ${VAR:-default} is expanded; relative paths are relative to the repo root.
+# On Bouchet env.sh sets FTD_BASE; on the laptop it's unset and everything
+# lands in client/outputs/ (gitignored).
+paths:
+  output_root: ${FTD_BASE:-client/outputs}/results
+  calib_root:  ${FTD_BASE:-client/outputs}/calibration
+
+# --- merge ------------------------------------------------------------------
+merge:
+  max_mb: 500                       # concatenate + purge parts only if the merged CSV is under this
+  xlsx: true                        # also write <run_name>.xlsx next to the CSV
+
+# --- SLURM (ignored with --local) -------------------------------------------
+# Changing these does not count as changing the run: a resubmit with new
+# resources resumes the same run.
+slurm:
+  partition: gpu_b200
+  gpus: 2
+  cpus: 8
+  mem: 256G
+  time: "08:00:00"
+  max_concurrent: null              # e.g. 8 -> --array=0-N%8
+  calibrate_time: "03:00:00"
+  merge_mem: 32G
+  merge_partition: day              # CPU partition for the merge job; null = same as partition. VERIFY with `sinfo -s`
