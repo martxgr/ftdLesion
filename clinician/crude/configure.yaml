@@ -58,3 +58,10 @@ rate:
 
 report:
   use_ev: true                      # local backend: correlate the expected score, not the argmax
+
+# validate/aggregate.py: learn how to combine the items into one disorder score
+# (out-of-sample, grouped by participant), then freeze it for scoring the client.
+aggregate:
+  target: tli_disorganisation       # human per-image score to maximise agreement with
+  exclude: [non_sequitur, tangential]   # question-relative items; non_sequitur tracks length (rho +0.65)
+  choose: pool_nnls                 # pool_nnls | tli_nnls -- the one written to aggregate.json

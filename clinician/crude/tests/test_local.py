@@ -39,6 +39,7 @@ def synthetic(path, n_sessions=12):
                  "participant": f"p{s // 2}", "dx_group": "patient" if s % 2 else "control",
                  "response": " ".join(rng.choice(words, rng.integers(8, 30))),
                  "prompt": "", "exchange": ""}
+            r["n_words_participant"] = len(r["response"].split())
             for k in ITEMS:
                 r[f"item_{k}"] = rng.choice([0, 0, 0.25, 0.5, 1])
             r["tli_impoverishment"] = r["item_poverty_of_speech"] + r["item_weakening_of_goal"]
@@ -86,6 +87,18 @@ def main():
         val = pd.read_csv(os.path.join(od, "validation.csv"))
         assert {"picture", "session"} <= set(val.level) and "rater_tli_total" in set(val.rater)
         print(f"ok  report: {len(val)} validation rows")
+        a = subprocess.run([sys.executable, os.path.join(CRUDE, "validate", "aggregate.py"),
+                            "--config", cfg_path, "--repeats", "2", "--n-boot", "50"],
+                           capture_output=True, text=True)
+        assert a.returncode == 0, a.stdout[-2000:] + a.stderr[-3000:]
+        sys.path.insert(0, os.path.dirname(CRUDE))
+        from common import aggregate as agg
+        m = agg.load(os.path.join(od, "aggregate.json"))
+        s = agg.apply(wide, m)
+        assert len(s) == n and s.notna().all() and (m["weights"] >= 0).all()
+        cv = pd.read_csv(os.path.join(od, "aggregate_cv.csv"))
+        assert {"pool_nnls", "tli_nnls", "tli_disorg_sum"} <= set(cv.model)
+        print(f"ok  aggregate: {len(cv)} candidates cross-validated, weights frozen and re-applied")
         print("ALL PASSED")
     finally:
         shutil.rmtree(root, ignore_errors=True)

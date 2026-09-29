@@ -8,7 +8,7 @@
 # Rows produced = prompts x reps x (1 baseline + manipulations x levels x bands),
 # per model. `python client/sweep.py plan --config ... --dry-run` prints the count.
 
-run_name: tat_1                     # names the output folder and the merged CSV
+run_name: tat_1_full                # names the output folder and the merged CSV
 
 models:                             # one or many; each is sweep-ed over everything below
   - meta-llama/Llama-3.3-70B-Instruct
@@ -31,10 +31,11 @@ baseline: true                      # unmanipulated model, same prompts x reps
 generation:
   temperature: 1.0
   top_k: 50
-  # Length cap. Long outputs buy disorder scores by running out of content, so
-  # cap to the human distribution: picture-description p75 = 161 words.
-  max_words: 161                    # stop once this many words are complete; null = off
-  max_new_tokens: 400               # hard token ceiling behind the word cap
+  # Generate in full; length is matched to the human distribution AFTER
+  # generation, before rating (a cap only stops sampling, it doesn't change the
+  # text before it -- so nothing is lost, and length itself stays an outcome).
+  max_words: null                   # stop once this many words are complete; null = off
+  max_new_tokens: 1000              # hard ceiling for loops (~750 words)
 
 metrics: true                       # inline word_count / ttr / repetition / coherence / topic_similarity
 

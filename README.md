@@ -51,6 +51,7 @@ stop reasons). Resubmitting resumes; a changed config under the same
 ```bash
 sbatch clinician/crude/rate.sbatch               # on Bouchet: one GPU job, rate then validate
 python clinician/crude/tests/test_local.py       # CPU check on synthetic transcripts
+python clinician/crude/validate/aggregate.py     # best out-of-sample item weighting -> aggregate.json
 ```
 
 `backend: local` scores with Llama-3.3-70B on our GPUs, reading each answer off
@@ -58,3 +59,6 @@ the next-token distribution (`score` = most likely answer, `ev` = expected
 score, `p_mass` = probability on valid answers). `backend: api` does the same
 questions through the Anthropic Batches API (`validate/rate_api.py`). Ratings
 of patient transcripts go to `$FTD_RATINGS`, never the repo.
+
+Python needs: torch, transformers, pandas, pyyaml, scipy, sentence-transformers
+(`pip install scipy` if the conda env predates the rater).
