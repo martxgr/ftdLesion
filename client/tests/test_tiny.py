@@ -59,6 +59,22 @@ def test_bands():
     print("ok  bands match 8_sweep.py for n in 10, 32, 80, 81, 126")
 
 
+def test_text_cleaning(root):
+    """Lesioned outputs can contain NUL and other control bytes; they must be
+    stripped and must not break the part CSV (Python <= 3.10's csv writer
+    refuses an unescaped NUL)."""
+    dirty = "the man\x00 plows\x01 the field\n\tthen\x7f stops"
+    clean = sweep.clean_text(dirty)
+    assert clean == "the man plows the field\n\tthen stops", repr(clean)
+    path = os.path.join(root, "part.csv")
+    sweep.append_rows(path, [{"a": 1, "output": clean, "b": 2}])
+    # a later batch with columns in another order (and one extra) still lines up
+    sweep.append_rows(path, [{"b": 4, "output": "x", "a": 3, "new": 9}])
+    df = pd.read_csv(path)
+    assert list(df.columns) == ["a", "output", "b"] and df.a.tolist() == [1, 3] and df.b.tolist() == [2, 4]
+    print("ok  control characters stripped; appends follow the file's header")
+
+
 def build_tiny(path):
     from transformers import AutoTokenizer, LlamaConfig, LlamaForCausalLM
     tok = AutoTokenizer.from_pretrained("gpt2-medium")
@@ -196,6 +212,7 @@ def main():
     test_bands()
     root = tempfile.mkdtemp(prefix="ftdlesion_tiny_")
     try:
+        test_text_cleaning(root)
         model_dir = os.path.join(root, "tiny-llama")
         build_tiny(model_dir)
         test_manipulations(model_dir, os.path.join(root, "calib_unit"))

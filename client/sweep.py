@@ -296,9 +296,28 @@ def load_completed(csv_path):
             for v, p, r in zip(df.param_value, df.prompt_id, df.rep)}
 
 
+# C0 control characters other than tab / newline / carriage return. Heavily
+# lesioned models sample Llama's raw byte tokens (e.g. <0x00>); they carry no
+# language, and a NUL makes Python <= 3.10's csv writer fail with
+# "need to escape, but no escapechar set".
+CONTROL_RE = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+
+def clean_text(text):
+    return CONTROL_RE.sub("", text)
+
+
 def append_rows(csv_path, rows):
-    pd.DataFrame(rows).to_csv(csv_path, mode="a", header=not os.path.exists(csv_path),
-                              index=False, encoding="utf-8")
+    df = pd.DataFrame(rows)
+    exists = os.path.exists(csv_path) and os.path.getsize(csv_path) > 0
+    if exists:
+        # append in the file's own column order, so fields can't shift
+        header = pd.read_csv(csv_path, nrows=0).columns.tolist()
+        extra = [c for c in df.columns if c not in header]
+        if extra:
+            print(f"  [warn] dropping columns not in {os.path.basename(csv_path)}: {extra}", flush=True)
+        df = df.reindex(columns=header)
+    df.to_csv(csv_path, mode="a", header=not exists, index=False, encoding="utf-8")
 
 
 def git_state():
@@ -630,7 +649,8 @@ class Engine:
         results = []
         for row in out[:, input_len:].tolist():
             cut = next((i for i, t in enumerate(row) if t in self.eos_ids), None)
-            text = tok.decode(row if cut is None else row[:cut], skip_special_tokens=True).strip()
+            text = clean_text(tok.decode(row if cut is None else row[:cut],
+                                         skip_special_tokens=True)).strip()
             n_words = len(text.split())
             if max_words and n_words > max_words:
                 end = [m.end() for m in re.finditer(r"\S+", text)][max_words - 1]
@@ -863,6 +883,8 @@ def cmd_merge(args):
 
     order = {p: i for i, p in enumerate(cfg["prompts"])}
     allrows = pd.concat(frames, ignore_index=True)
+    # parts written before clean_text existed may still hold control bytes
+    allrows["output"] = allrows.output.astype(str).map(clean_text)
     allrows["_p"] = allrows.prompt_id.map(order)
     allrows["_v"] = pd.to_numeric(allrows.param_value, errors="coerce").fillna(-1)
     allrows = (allrows.sort_values(["task", "_v", "_p", "rep"])
