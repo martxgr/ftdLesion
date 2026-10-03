@@ -176,6 +176,8 @@ def test_end_to_end(model_dir, root):
     n1 = len(pd.read_csv(part))
     sh(py, sw, "task", "--run-dir", run_dir, "--index", "1")
     assert len(pd.read_csv(part)) == n1 == 2 * 2 * 3, n1
+    r = sh(py, sw, "task", "--run-dir", run_dir, "--index", "1")
+    assert "already complete" in r.stdout and "Loading" not in r.stdout, r.stdout[-500:]
     print(f"ok  resume: task rerun left {n1} rows, no duplicates")
 
     r = sh(py, sw, "merge", "--run-dir", run_dir, ok=False)

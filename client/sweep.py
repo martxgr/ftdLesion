@@ -792,6 +792,12 @@ def cmd_calibrate(args):
 def run_task(cfg, run_dir, task, engine=None):
     """Generate every missing row of one task. Returns the engine for reuse."""
     reg = load_registry().set_index("prompt_id")
+    # check before loading 132 GB of weights: on a resubmit most tasks are done
+    expected = {(pkey(l), p, r) for l in task_levels(cfg, task)
+                for p in cfg["prompts"] for r in range(cfg["reps"])}
+    if expected <= load_completed(os.path.join(run_dir, "parts", task["part"])):
+        print(f"task {task['index']} already complete -- nothing to do", flush=True)
+        return engine
     if engine is None or engine.name != task["model"]:
         engine = Engine(task["model"], cfg["dtype"], cfg["device_map"])
     if task["manipulation"] in NEEDS_CALIB:
