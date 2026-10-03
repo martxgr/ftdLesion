@@ -60,7 +60,9 @@ fi
 # ---- SLURM: three jobs chained by dependency --------------------------------
 LOGS="$FTD_BASE/logs"
 mkdir -p "$LOGS"
-COMMON=(--chdir="$REPO" --partition="$S_PARTITION" --cpus-per-task="$S_CPUS")
+# --nodes=1: device_map="auto" spreads the model over the GPUs of ONE node;
+# without it SLURM may hand out the GPUs on two nodes and one sits idle.
+COMMON=(--chdir="$REPO" --nodes=1 --partition="$S_PARTITION" --cpus-per-task="$S_CPUS")
 
 DEP=""
 if [ -n "$CALIB_NEEDED" ]; then

@@ -1,6 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ftd-rate
 #SBATCH --partition=gpu_b200
+#SBATCH --nodes=1
 #SBATCH --gpus=2
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=256G
