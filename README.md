@@ -62,3 +62,17 @@ of patient transcripts go to `$FTD_RATINGS`, never the repo.
 
 Python needs: torch, transformers, pandas, pyyaml, scipy, sentence-transformers
 (`pip install scipy` if the conda env predates the rater).
+
+## Clinician (fine_tune)
+
+```bash
+python clinician/fine_tune/validate/score.py plan    # login node: stack runs, length-match, check adapters
+sbatch clinician/fine_tune/score.sbatch              # 16-chunk GPU array, last chunk merges
+python clinician/fine_tune/tests/test_score.py       # CPU check, tiny model + synthetic text
+```
+
+Scores client outputs with the LoRA TLI model from llmSchizophrenia/0_finetunerun
+(`tight_none` = trained on all three TAT pictures). Outputs are cut to human
+picture-description lengths first (clinician/common/length_match.py), and fed
+as bare responses -- the form the adapters were trained on; score.py refuses
+adapters whose results.json says otherwise.

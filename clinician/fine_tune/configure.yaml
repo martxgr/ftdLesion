@@ -1,0 +1,38 @@
+# clinician/fine_tune/configure.yaml -- score client outputs with the fine-tuned
+# TLI model (LoRA on Llama-3.3-70B, trained in llmSchizophrenia/0_finetunerun).
+#
+# On Bouchet, from the repo root:
+#   python clinician/fine_tune/validate/score.py plan     # login node: checks + sizes, no GPU
+#   sbatch clinician/fine_tune/score.sbatch               # GPU array: score, then merge
+#
+# The model sees the RESPONSE ONLY, length-matched to the human picture
+# descriptions -- the same form it was trained on (train_ftd.py --text_col
+# response). score.py refuses adapters trained on any other text column.
+
+name: tat_1_full_ft                 # names the output folder
+
+# client runs to score, stacked (each is <results>/<run>/<run>.csv)
+runs: [tat_1_full, tat_1_gs25]
+results_root: ${FTD_BASE:-client/outputs}/results
+text_col: output
+
+# adapters: "tight_none" = trained on all three TAT pictures (farm, embrace, bridge)
+adapters: ${FTD_STORE}/runs/tight_none_seed*/best_adapter
+expect_text_col: response           # what the adapters must have been trained on
+model_id: meta-llama/Llama-3.3-70B-Instruct
+quant_4bit: true                    # as in training (QLoRA)
+dtype: bfloat16
+device_map: {"": 0}
+max_length: 1280                    # tokens; run_sweep.sbatch trained tight_* at 1280
+batch_size: 8
+
+# Cut each output to a length drawn from human picture descriptions, at the
+# last sentence end (clinician/common/length_match.py).
+length_match:
+  reference: ${FTD_PATIENT_DATA}    # only n_words_participant is read
+  row_type: image
+  group: all                        # all | patient | control
+  seed: 0
+  min_frac: 0.5                     # cut at the sentence end nearest the target, within +-50% of it
+
+output_root: ${FTD_BASE:-analysis}/ratings
