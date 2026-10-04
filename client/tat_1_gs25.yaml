@@ -1,0 +1,46 @@
+# client/tat_1_gs25.yaml -- gate_shift at beta = 2.5 only, to stack onto tat_1_full.
+# Everything else (prompts, generation, seed, calibration) is tat_1_full's, so the
+# 900 rows here are directly comparable. No baseline: tat_1_full has it.
+#   sbatch client/run.sh client/tat_1_gs25.yaml
+run_name: tat_1_gs25
+models:
+- meta-llama/Llama-3.3-70B-Instruct
+dtype: bfloat16
+device_map: auto
+prompts:
+- farm
+- doorway
+- bridge
+reps: 20
+batch_reps: 20
+seed: 0
+baseline: false
+generation:
+  temperature: 1.0
+  top_k: 50
+  max_words: null
+  max_new_tokens: 1000
+metrics: true
+bands:
+- deciles
+- quartiles
+- all
+manipulations:
+  gate_shift:
+  - 2.5
+calibration_prompts: all
+paths:
+  output_root: ${FTD_BASE:-client/outputs}/results
+  calib_root: ${FTD_BASE:-client/outputs}/calibration
+merge:
+  max_mb: 500
+slurm:
+  partition: gpu_b200
+  gpus: 2
+  cpus: 8
+  mem: 256G
+  time: 08:00:00
+  max_concurrent: null
+  calibrate_time: 03:00:00
+  merge_mem: 32G
+  merge_partition: day
