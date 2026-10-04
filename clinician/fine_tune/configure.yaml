@@ -12,7 +12,7 @@
 name: tat_1_full_ft                 # names the output folder
 
 # client runs to score, stacked (each is <results>/<run>/<run>.csv)
-runs: [tat_1_full, tat_1_gs25]
+runs: [tat_1_full]                  # tat_1_gs25's 900 rows are appended into tat_1_full.csv
 results_root: ${FTD_BASE:-client/outputs}/results
 text_col: output
 

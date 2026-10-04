@@ -109,7 +109,7 @@ def main():
         run = lambda *a: subprocess.run([sys.executable, SCORE, *a, "--config", cp],
                                         capture_output=True, text=True)
 
-        r = run("plan", "--no-tokens")
+        r = run("plan", "--token-check", "10")
         assert r.returncode == 0, r.stdout + r.stderr[-3000:]
         d = pd.read_csv(os.path.join(root, "ratings", "t", "to_score.csv"), keep_default_na=False)
         assert len(d) == 30 and (d.n_words_rated <= 1.5 * d.trim_target).all()

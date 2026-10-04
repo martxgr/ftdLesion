@@ -101,7 +101,9 @@ def build_input(cfg):
     frames = []
     for run in cfg["runs"]:
         p = os.path.join(resolve(cfg["results_root"]), run, f"{run}.csv")
-        frames.append(pd.read_csv(p, keep_default_na=False, dtype={"output": str}))
+        # only the columns we keep: the run CSVs also carry metrics, timestamps, seeds
+        frames.append(pd.read_csv(p, keep_default_na=False, dtype={"output": str, "param_value": str},
+                                  usecols=lambda c: c in META or c == cfg["text_col"]))
     d = pd.concat(frames, ignore_index=True)
     if not d.row_id.is_unique:
         raise SystemExit("row_id collides across runs -- refusing to stack")
@@ -150,9 +152,12 @@ def cmd_plan(cfg, args):
     if not args.no_tokens:
         from transformers import AutoTokenizer
         tok = AutoTokenizer.from_pretrained(cfg["model_id"])
-        lens = np.array([len(x) for x in tok(d.text_rated.tolist())["input_ids"]])
-        print(f"  tokens           : median {int(np.median(lens))}, p95 {int(np.percentile(lens, 95))}, "
-              f"max {lens.max()} | over max_length={cfg['max_length']}: {(lens > cfg['max_length']).mean():.2%}")
+        # Only the longest texts can exceed max_length, and tokenising all of
+        # them at once is more memory than a login node allows.
+        longest = d.text_rated.iloc[np.argsort(-d.n_words_rated.to_numpy())[:args.token_check]]
+        lens = np.array([len(tok(t)["input_ids"]) for t in longest])
+        print(f"  tokens, {len(lens)} longest: max {lens.max()} | over max_length="
+              f"{cfg['max_length']}: {(lens > cfg['max_length']).sum()} rows")
     print(f"  -> {input_path(cfg)}")
 
 
@@ -310,6 +315,7 @@ def main():
     ap.add_argument("--chunk", type=int, default=None)
     ap.add_argument("--n-chunks", type=int, default=None)
     ap.add_argument("--no-tokens", action="store_true", help="plan: skip the tokenizer pass")
+    ap.add_argument("--token-check", type=int, default=500, help="plan: tokenise this many longest texts")
     args = ap.parse_args()
     cfg = load(args.config)
     {"plan": cmd_plan, "score": cmd_score, "merge": cmd_merge}[args.cmd](cfg, args)
